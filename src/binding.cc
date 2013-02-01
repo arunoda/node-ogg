@@ -416,6 +416,76 @@ Handle<Value> node_ogg_stream_eos (const Arguments& args) {
 }
 
 
+/* packet->packet = ... */
+Handle<Value> node_ogg_packet_set_packet (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  packet->packet = reinterpret_cast<unsigned char *>(UnwrapPointer(args[1]));
+  return Undefined();
+}
+
+
+/* packet->packet */
+Handle<Value> node_ogg_packet_get_packet (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  return scope.Close(WrapPointer(packet->packet, packet->bytes));
+}
+
+
+/* packet->bytes */
+Handle<Value> node_ogg_packet_bytes (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  return scope.Close(Number::New(packet->bytes));
+}
+
+
+/* packet->b_o_s */
+Handle<Value> node_ogg_packet_b_o_s (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  return scope.Close(Number::New(packet->b_o_s));
+}
+
+
+/* packet->e_o_s */
+Handle<Value> node_ogg_packet_e_o_s (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  return scope.Close(Number::New(packet->e_o_s));
+}
+
+
+/* packet->granulepos */
+Handle<Value> node_ogg_packet_granulepos (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  return scope.Close(Number::New(packet->granulepos));
+}
+
+
+/* packet->packetno */
+Handle<Value> node_ogg_packet_packetno (const Arguments& args) {
+  HandleScope scope;
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  return scope.Close(Number::New(packet->packetno));
+}
+
+
+/* Replaces the `ogg_packet` "packet" pointer with a Node.js buffer instance */
+Handle<Value> node_ogg_packet_replace_buffer (const Arguments& args) {
+  HandleScope scope;
+
+  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
+  unsigned char *buf = reinterpret_cast<unsigned char *>(UnwrapPointer(args[1]));
+  memcpy(buf, packet->packet, packet->bytes);
+  packet->packet = buf;
+
+  return Undefined();
+}
+
+
 void Initialize(Handle<Object> target) {
   HandleScope scope;
 
@@ -442,6 +512,15 @@ void Initialize(Handle<Object> target) {
 
   /* custom function */
   NODE_SET_METHOD(target, "ogg_page_to_buffer", node_ogg_page_to_buffer);
+
+  NODE_SET_METHOD(target, "ogg_packet_set_packet", node_ogg_packet_set_packet);
+  NODE_SET_METHOD(target, "ogg_packet_get_packet", node_ogg_packet_get_packet);
+  NODE_SET_METHOD(target, "ogg_packet_bytes", node_ogg_packet_bytes);
+  NODE_SET_METHOD(target, "ogg_packet_b_o_s", node_ogg_packet_b_o_s);
+  NODE_SET_METHOD(target, "ogg_packet_e_o_s", node_ogg_packet_e_o_s);
+  NODE_SET_METHOD(target, "ogg_packet_granulepos", node_ogg_packet_granulepos);
+  NODE_SET_METHOD(target, "ogg_packet_packetno", node_ogg_packet_packetno);
+  NODE_SET_METHOD(target, "ogg_packet_replace_buffer", node_ogg_packet_replace_buffer);
 
 }
 
