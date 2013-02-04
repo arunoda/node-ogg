@@ -37,6 +37,7 @@ struct packetout_req {
   ogg_packet *packet;
   int rtn;
   v8::Persistent<v8::Function> callback;
+  int pageout;
 };
 
 struct page_buf_req {

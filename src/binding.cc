@@ -258,6 +258,7 @@ Handle<Value> node_ogg_stream_packetin (const Arguments& args) {
   packetin_req *req = new packetin_req;
   req->os = reinterpret_cast<ogg_stream_state *>(UnwrapPointer(args[0]));
   req->rtn = 0;
+  req->pageout = 0;
   req->packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[1]));
   req->callback = Persistent<Function>::New(callback);
   req->req.data = req;
@@ -272,16 +273,17 @@ Handle<Value> node_ogg_stream_packetin (const Arguments& args) {
 void node_ogg_stream_packetin_async (uv_work_t *req) {
   packetin_req *preq = reinterpret_cast<packetin_req *>(req->data);
   preq->rtn = ogg_stream_packetin(preq->os, preq->packet);
+  preq->pageout = ogg_stream_pageout(preq->os, 0);
 }
 
 void node_ogg_stream_packetin_after (uv_work_t *req) {
   HandleScope scope;
   packetin_req *preq = reinterpret_cast<packetin_req *>(req->data);
 
-  Handle<Value> argv[1] = { Integer::New(preq->rtn) };
+  Handle<Value> argv[2] = { Integer::New(preq->rtn), Integer::New(preq->pageout) };
 
   TryCatch try_catch;
-  preq->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+  preq->callback->Call(Context::GetCurrent()->Global(), 2, argv);
 
   // cleanup
   preq->callback.Dispose();

@@ -423,6 +423,11 @@ static int ogg_stream_flush_i(ogg_stream_state *os,ogg_page *og, int force, int 
 
   if(!force) return(0);
 
+  /* if ogg page is empty simply return the indicator */
+  if(!og) {
+    return(1);
+  }
+
   /* construct the header in temp storage */
   memcpy(os->header,"OggS",4);
 
