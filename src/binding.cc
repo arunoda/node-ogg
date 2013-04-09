@@ -258,7 +258,6 @@ Handle<Value> node_ogg_stream_packetin (const Arguments& args) {
   packetin_req *req = new packetin_req;
   req->os = reinterpret_cast<ogg_stream_state *>(UnwrapPointer(args[0]));
   req->rtn = 0;
-  req->pageout = 0;
   req->packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[1]));
   req->callback = Persistent<Function>::New(callback);
   req->req.data = req;
@@ -273,17 +272,16 @@ Handle<Value> node_ogg_stream_packetin (const Arguments& args) {
 void node_ogg_stream_packetin_async (uv_work_t *req) {
   packetin_req *preq = reinterpret_cast<packetin_req *>(req->data);
   preq->rtn = ogg_stream_packetin(preq->os, preq->packet);
-  preq->pageout = ogg_stream_pageout(preq->os, 0);
 }
 
 void node_ogg_stream_packetin_after (uv_work_t *req) {
   HandleScope scope;
   packetin_req *preq = reinterpret_cast<packetin_req *>(req->data);
 
-  Handle<Value> argv[2] = { Integer::New(preq->rtn), Integer::New(preq->pageout) };
+  Handle<Value> argv[1] = { Integer::New(preq->rtn) };
 
   TryCatch try_catch;
-  preq->callback->Call(Context::GetCurrent()->Global(), 2, argv);
+  preq->callback->Call(Context::GetCurrent()->Global(), 1, argv);
 
   // cleanup
   preq->callback.Dispose();
@@ -321,20 +319,22 @@ void node_ogg_stream_pageout_after (uv_work_t *req) {
   HandleScope scope;
   pageout_stream_req *preq = reinterpret_cast<pageout_stream_req *>(req->data);
 
-  Handle<Value> argv[3];
+  Handle<Value> argv[4];
   argv[0] = Integer::New(preq->rtn);
   if (preq->rtn == 0) {
     /* need more data */
     argv[1] = Null();
     argv[2] = Null();
+    argv[3] = Null();
   } else {
     /* got a page! */
     argv[1] = Number::New(preq->page->header_len);
     argv[2] = Number::New(preq->page->body_len);
+    argv[3] = Integer::New(ogg_page_eos(preq->page));
   }
 
   TryCatch try_catch;
-  preq->callback->Call(Context::GetCurrent()->Global(), 3, argv);
+  preq->callback->Call(Context::GetCurrent()->Global(), 4, argv);
 
   // cleanup
   preq->callback.Dispose();
@@ -373,56 +373,21 @@ void node_ogg_stream_flush_async (uv_work_t *req) {
 /* Converts an `ogg_page` instance to a node Buffer instance */
 Handle<Value> node_ogg_page_to_buffer (const Arguments& args) {
   HandleScope scope;
-  Local<Function> callback = Local<Function>::Cast(args[2]);
 
-  page_buf_req *req = new page_buf_req;
-  req->page = reinterpret_cast<ogg_page *>(UnwrapPointer(args[0]));
-  req->buffer = reinterpret_cast<unsigned char *>(UnwrapPointer(args[1]));
-  req->callback = Persistent<Function>::New(callback);
-  req->req.data = req;
+  ogg_page *op = reinterpret_cast<ogg_page *>(UnwrapPointer(args[0]));
+  unsigned char *buf = reinterpret_cast<unsigned char *>(UnwrapPointer(args[1]));
+  memcpy(buf, op->header, op->header_len);
+  memcpy(buf + op->header_len, op->body, op->body_len);
 
-  uv_queue_work(uv_default_loop(),
-                &req->req,
-                node_ogg_page_to_buffer_async,
-                (uv_after_work_cb)node_ogg_page_to_buffer_after);
   return Undefined();
-}
-
-void node_ogg_page_to_buffer_async (uv_work_t *req) {
-  page_buf_req *preq = reinterpret_cast<page_buf_req *>(req->data);
-  ogg_page *op = preq->page;
-  memcpy(preq->buffer, op->header, op->header_len);
-  memcpy(preq->buffer + op->header_len, op->body, op->body_len);
-}
-
-void node_ogg_page_to_buffer_after (uv_work_t *req) {
-  HandleScope scope;
-  page_buf_req *preq = reinterpret_cast<page_buf_req *>(req->data);
-
-  Handle<Value> argv[0];
-  TryCatch try_catch;
-  preq->callback->Call(Context::GetCurrent()->Global(), 0, argv);
-
-  // cleanup
-  preq->callback.Dispose();
-  delete preq;
-
-  if (try_catch.HasCaught()) FatalException(try_catch);
-}
-
-
-Handle<Value> node_ogg_stream_eos (const Arguments& args) {
-  HandleScope scope;
-  ogg_stream_state *os = reinterpret_cast<ogg_stream_state *>(UnwrapPointer(args[0]));
-  return scope.Close(Integer::New(ogg_stream_eos(os)));
 }
 
 
 /* packet->packet = ... */
 Handle<Value> node_ogg_packet_set_packet (const Arguments& args) {
   HandleScope scope;
-  ogg_packet *packet = reinterpret_cast<ogg_packet *>(UnwrapPointer(args[0]));
-  packet->packet = reinterpret_cast<unsigned char *>(UnwrapPointer(args[1]));
+  ogg_packet *packet = UnwrapPointer<ogg_packet *>(args[0]);
+  packet->packet = UnwrapPointer<unsigned char *>(args[1]);
   return Undefined();
 }
 
@@ -510,9 +475,8 @@ void Initialize(Handle<Object> target) {
   NODE_SET_METHOD(target, "ogg_stream_packetin", node_ogg_stream_packetin);
   NODE_SET_METHOD(target, "ogg_stream_pageout", node_ogg_stream_pageout);
   NODE_SET_METHOD(target, "ogg_stream_flush", node_ogg_stream_flush);
-  NODE_SET_METHOD(target, "ogg_stream_eos", node_ogg_stream_eos);
 
-  /* custom function */
+  /* custom functions */
   NODE_SET_METHOD(target, "ogg_page_to_buffer", node_ogg_page_to_buffer);
 
   NODE_SET_METHOD(target, "ogg_packet_set_packet", node_ogg_packet_set_packet);
